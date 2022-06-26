@@ -1,0 +1,143 @@
+version: '3.8'
+services:
+  web:
+    image: nginx
+    labels:
+      traefik.enable: true
+      traefik.http.routers.$TRAEFIK_ROUTER.rule: Host(`$DOMAIN_NAME`)
+      traefik.docker.network: traefik_default
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - traefik_default
+      - default
+
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    cap_add:
+      - SYS_NICE
+    command:
+      - --sort_buffer_size=1073741824
+    ports:
+      - "33067:3306"
+    environment:
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+      #MYSQL_ROOT_PASSWORD: 'password'
+      #            MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    env_file:
+      - .env
+
+  mailhog:
+    image: 'mailhog/mailhog:latest'
+    networks:
+      - traefik_default
+      - default
+    #        expose:
+    #            - 8025
+    labels:
+      traefik.enable: true
+      traefik.http.routers.mailhog-$TRAEFIK_ROUTER.rule: Host(`mailhog.DOMAIN_NAME`)
+      traefik.backend: mailhog.${DOMAIN_NAME}
+      traefik.frontend.rule: Host:mailhog.${DOMAIN_NAME}
+      traefik.docker.network: traefik_default
+      traefik.http.services.mailhog-$TRAEFIK_ROUTER.loadbalancer.server.port: 8025
+
+  horizon:
+    image: ethanabrace/php:7.4-fpm
+    entrypoint: /var/www/html/artisan
+    command: "horizon"
+    volumes:
+      - './:/var/www/html'
+
+  artisan:
+    image: familyresearchcouncil/php:7.4-fpm
+    user: "1000:1000"
+    entrypoint: /var/www/html/artisan
+    volumes:
+      - './:/var/www/html'
+      - '~/:/var/www'
+    profiles:
+      - runonly
+
+  # composer without studio
+  composer:
+    image: ethanabrace/php:7.4-fpm
+    user: "1000"
+    entrypoint: /usr/local/bin/composer
+    volumes:
+      - './:/var/www/html'
+      - '~/:/var/www'
+    profiles:
+      - runonly
+
+
+  #    schedule:
+  #        image: familyresearchcouncil/php:7.4-fpm
+  #        restart: 'unless-stopped'
+  #        entrypoint: /var/www/html/scripts/schedule.sh
+  #        volumes:
+  #            - "/etc/timezone:/etc/timezone:ro"
+  #            - "/etc/localtime:/etc/localtime:ro"
+  #            - './:/var/www/html'
+
+
+  #    selenium:
+  #        image: 'selenium/standalone-chrome'
+  #        volumes:
+  #            - '/dev/shm:/dev/shm'
+  #
+  #    dusk:
+  #        image: familyresearchcouncil/php:7.4-fpm
+  #        user: '1000:1000'
+  #        entrypoint: /var/www/html/artisan
+  #        command: dusk
+  #        volumes:
+  #            - ./:/var/www/html
+  #        environment:
+  #            APP_URL: http://web
+  #            DUSK_DRIVER_URL: http://selenium:4444/wd/hub
+
+  node:
+    image: node:14
+    working_dir: /var/www/html
+    user: '1000'
+    volumes:
+      - ./:/var/www/html
+    profiles:
+      - runonly
+
+  redis:
+    image: redis
+    ports:
+      - '6379:6379'
+
+#    hmr:
+#        image: node:14
+#        working_dir: /var/www/html
+#        user: '1000'
+#        volumes:
+#            - ./:/var/www/html
+#         #command: 'npx mix build -p'
+#         #command: 'npx mix watch --hot'
+#        networks:
+#            - traefik_default
+#            - default
+#        labels:
+#            traefik.enable: true
+#            traefik.http.routers.hmr-$DOMAIN_NAME.rule: Host(`hmr.$DOMAIN_NAME.localhost`)
+#            traefik.backend: hmr.$DOMAIN_NAME.localhost
+#            traefik.frontend.rule: Host:hmr.$DOMAIN_NAME.localhost
+#            traefik.docker.network: traefik_default
+#            traefik.http.services.hmr-$DOMAIN_NAME.loadbalancer.server.port: 8080
+
+networks:
+  traefik_default:
+    external: true
