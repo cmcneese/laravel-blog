@@ -51,7 +51,7 @@ services:
       traefik.http.services.mailhog-$TRAEFIK_ROUTER.loadbalancer.server.port: 8025
 
   horizon:
-    image: ethanabrace/php:7.4-fpm
+    image: ethanabrace/php:8.0-fpm
     entrypoint: /var/www/html/artisan
     command: "horizon"
     volumes:
